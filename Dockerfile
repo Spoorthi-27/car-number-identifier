@@ -11,6 +11,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# Install CPU-only PyTorch first. yolov5's normal install path pulls in the
+# full CUDA build (2GB+ of GPU libraries this container will never use,
+# since Render has no GPU) - installing the CPU-only wheel first means
+# later installs see torch already satisfied and skip the CUDA version.
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
