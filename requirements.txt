@@ -1,0 +1,10 @@
+opencv-python>=4.8.0,<5.0.0    # non-headless build: needed for cv2.imshow() live video window
+setuptools<82                  # yolov5 (below) still needs pkg_resources, removed in setuptools 82+
+yolov5>=7.0.13                 # loads pretrained YOLO plate-detection weights from Hugging Face
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9        # required by FastAPI for file uploads
+pytesseract>=0.3.10
+numpy>=1.24.0
+Pillow>=10.0.0
+pytest>=7.4.0

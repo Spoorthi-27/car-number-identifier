@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plate Reader Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark"></span>
+    <h1>Plate Reader Console</h1>
+  </div>
+  <div class="status-group">
+    <div class="status-pill" id="cameraStatus">
+      <span class="dot"></span> <span id="cameraStatusText">camera idle</span>
+    </div>
+    <label class="camera-select">
+      cam
+      <input type="number" id="cameraIndex" value="0" min="0" max="9">
+    </label>
+    <button class="btn btn-primary" id="startBtn">Start feed</button>
+    <button class="btn" id="stopBtn" disabled>Stop</button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <section class="panel feed-panel">
+    <div class="panel-head">
+      <h2>Live feed</h2>
+      <span class="panel-sub" id="feedHint">not running</span>
+    </div>
+    <div class="feed-frame">
+      <img id="feedImg" alt="Live camera feed" />
+      <div class="feed-placeholder" id="feedPlaceholder">
+        <p>Press <strong>Start feed</strong> to begin scanning for plates.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel upload-panel">
+    <div class="panel-head">
+      <h2>Test a single image</h2>
+      <span class="panel-sub">no camera needed</span>
+    </div>
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" accept="image/*" hidden>
+      <p>Drop an image here, or <label class="link-btn" id="browseBtn" for="fileInput">browse</label></p>
+    </div>
+    <div class="upload-result" id="uploadResult"></div>
+  </section>
+
+  <section class="panel log-panel">
+    <div class="panel-head">
+      <h2>Recent reads</h2>
+      <span class="panel-sub" id="logCount">0 logged</span>
+    </div>
+    <div class="log-table-wrap">
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>Plate</th>
+            <th>District</th>
+            <th>Confidence</th>
+            <th>Time</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="logTableBody">
+          <tr class="empty-row"><td colspan="5">No plates logged yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
