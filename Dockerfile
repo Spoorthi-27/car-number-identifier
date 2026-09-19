@@ -1,0 +1,25 @@
+FROM python:3.11-slim
+
+# System dependencies:
+#   tesseract-ocr        - required by pytesseract for OCR
+#   libgl1, libglib2.0-0  - required by opencv-python's shared libraries
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tesseract-ocr \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+# Directories the app writes to at runtime (kept out of the image via
+# .dockerignore, but the app expects them to exist).
+RUN mkdir -p database output/snapshots
+
+EXPOSE 8000
+
+CMD ["uvicorn", "backend.api:app", "--host", "0.0.0.0", "--port", "8000"]

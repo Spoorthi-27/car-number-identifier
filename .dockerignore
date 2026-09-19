@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.git
+.gitignore
+venv/
+.venv/
+env/
+.env
+database/plates.db
+output/snapshots/*
+.vscode/
+.idea/
