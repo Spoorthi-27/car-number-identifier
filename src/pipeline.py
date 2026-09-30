@@ -62,10 +62,15 @@ class PlateReaderPipeline:
         self.ocr = PlateOCR(tesseract_cmd)
         self.min_plate_text_length = min_plate_text_length
 
-    def _detect_on_padded(self, image: np.ndarray) -> list:
+        # A close-up plate needs a border added before the detector recognizes it as
+    # a normal vehicle photo, but how much border varies by how tight the crop
+    # is. A couple of ratios are tried, in order, stopping at the first hit.
+    _PADDED_RETRY_RATIOS = (0.5, 0.9, 0.25)
+
+    def _detect_on_padded(self, image: np.ndarray, pad_ratio: float) -> list:
         """Retry on a bordered copy so a close-up plate becomes a smaller part of the frame."""
         h, w = image.shape[:2]
-        pad = int(0.5 * max(h, w))
+        pad = int(pad_ratio * max(h, w))
         padded = cv2.copyMakeBorder(
             image, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=(128, 128, 128)
         )
@@ -88,24 +93,11 @@ class PlateReaderPipeline:
         try:
             boxes = self.detector.detect(image)
             if not boxes:
-                boxes = self._detect_on_padded(image)
+                for pad_ratio in self._PADDED_RETRY_RATIOS:
+                    boxes = self._detect_on_padded(image, pad_ratio)
+                    if boxes:
+                        break
         except Exception as exc:
-            logger.error("Plate detection failed: %s", exc)
-            return []
-
-        if boxes:
-            logger.info("Detected %s plate region(s)", len(boxes))
-        results: List[PlateResult] = []
-
-        for (x, y, w, h, conf) in boxes:
-            try:
-                result = self._read_box(image, x, y, w, h, conf)
-            except Exception as exc:
-                logger.error("Failed to process a detected plate: %s", exc)
-                continue
-            if result is not None:
-                results.append(result)
-        return results
 
     def _read_text(self, tight: np.ndarray, padded: np.ndarray) -> tuple:
         """
