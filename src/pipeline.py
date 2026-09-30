@@ -62,7 +62,7 @@ class PlateReaderPipeline:
         self.ocr = PlateOCR(tesseract_cmd)
         self.min_plate_text_length = min_plate_text_length
 
-        # A close-up plate needs a border added before the detector recognizes it as
+    # A close-up plate needs a border added before the detector recognizes it as
     # a normal vehicle photo, but how much border varies by how tight the crop
     # is. A couple of ratios are tried, in order, stopping at the first hit.
     _PADDED_RETRY_RATIOS = (0.5, 0.9, 0.25)
@@ -89,15 +89,47 @@ class PlateReaderPipeline:
                 shifted.append((x1, y1, x2 - x1, y2 - y1, conf))
         return shifted
 
+    def _detect_on_upscaled(self, image: np.ndarray) -> list:
+        """Retry on an upscaled copy so a small, distant plate becomes easier for the detector to see."""
+        h, w = image.shape[:2]
+        if max(h, w) >= 1600:
+            return []  # already large enough; upscaling further rarely helps and is slow
+        scale = 1.6
+        upscaled = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+        try:
+            boxes = self.detector.detect(upscaled)
+        except Exception as exc:
+            logger.error("Upscaled plate detection failed: %s", exc)
+            return []
+        return [(x / scale, y / scale, w_ / scale, h_ / scale, conf) for (x, y, w_, h_, conf) in boxes]
+
     def process(self, image: np.ndarray) -> List[PlateResult]:
         try:
             boxes = self.detector.detect(image)
+            if not boxes:
+                boxes = self._detect_on_upscaled(image)
             if not boxes:
                 for pad_ratio in self._PADDED_RETRY_RATIOS:
                     boxes = self._detect_on_padded(image, pad_ratio)
                     if boxes:
                         break
         except Exception as exc:
+            logger.error("Plate detection failed: %s", exc)
+            return []
+
+        if boxes:
+            logger.info("Detected %s plate region(s)", len(boxes))
+        results: List[PlateResult] = []
+
+        for (x, y, w, h, conf) in boxes:
+            try:
+                result = self._read_box(image, x, y, w, h, conf)
+            except Exception as exc:
+                logger.error("Failed to process a detected plate: %s", exc)
+                continue
+            if result is not None:
+                results.append(result)
+        return results
 
     def _read_text(self, tight: np.ndarray, padded: np.ndarray) -> tuple:
         """
