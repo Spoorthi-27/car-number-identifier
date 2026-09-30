@@ -50,7 +50,6 @@ function statusBadge(status) {
   return `<span class="status-badge status-${kind}">${escapeHtml(name)}</span>`;
 }
 
-function renderDetection(plate) {
   // ---------- CSV download (single detection + history) ----------
 
 function csvEscape(value) {
@@ -99,7 +98,10 @@ function triggerCsvDownload(filename, csvText) {
 // "Download Details" button is kept here rather than round-tripped through
 // the DOM; the button only carries the small key needed to look it up.
 let detectionRecordSeq = 0;
+
 const detectionRecords = new Map();
+
+function renderDetection(plate) {
   const vehicle = plate.plate_text || plate.text || "—";
   const rows = [
     ["Vehicle", `<strong>${escapeHtml(vehicle)}</strong>`],
@@ -392,7 +394,7 @@ function handleFile(file) {
       }
       if (data.plates && data.plates.length > 0) {
         html += data.plates.map(renderDetection).join("");
-        showDetections(liveResult, data.plates, null);
+        
       } else {
         html += `<p style="color:var(--text-dim); margin-top:10px;">No plates detected in this file.</p>`;
       }

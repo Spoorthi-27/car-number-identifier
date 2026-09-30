@@ -314,7 +314,7 @@ def _row_payload(row: dict) -> dict:
 
 
 @app.get("/api/plates")
-def list_plates(limit: int = 50):
+def list_plates(limit: int = Query(default=50, ge=1, le=1000)):
     try:
         rows = get_db().recent_plates(limit=limit)
     except Exception as exc:
@@ -322,8 +322,6 @@ def list_plates(limit: int = 50):
         raise HTTPException(500, "Could not read the plate log.") from exc
     return [_row_payload(row) for row in rows]
 
-
-@app.delete("/api/plates/{plate_id}")
 # ---------------------------------------------------------------------
 # CSV download
 #
@@ -358,7 +356,12 @@ _CSV_COLUMNS = (
     ("Time", lambda p: p.get("time") or ""),
     ("Status", lambda p: p.get("status") or ""),
 )
-
+def _csv_safe(value) -> str:
+    """Stop Excel from running text read off an image as a formula."""
+    text = "" if value is None else str(value)
+    if text and text[0] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + text
+    return text
 
 def _plates_csv(payloads: list) -> str:
     """Render a list of row/plate payload dicts as CSV text (UTF-8 BOM, for Excel)."""
@@ -367,7 +370,7 @@ def _plates_csv(payloads: list) -> str:
     writer = csv.writer(buffer)
     writer.writerow([label for label, _ in _CSV_COLUMNS])
     for payload in payloads:
-        writer.writerow([getter(payload) for _, getter in _CSV_COLUMNS])
+        writer.writerow([_csv_safe(getter(payload)) for _, getter in _CSV_COLUMNS])
     return buffer.getvalue()
 
 
@@ -380,12 +383,12 @@ def _csv_response(csv_text: str, filename: str) -> Response:
 
 
 def _safe_filename_part(text: str, fallback: str) -> str:
-    cleaned = "".join(ch for ch in (text or "") if ch.isalnum())
+    cleaned = "".join(ch for ch in (text or "") if ch.isascii() and ch.isalnum())
     return cleaned or fallback
 
 
 @app.get("/api/plates/download")
-def download_plate_history(limit: int = 200):
+def download_plate_history(limit: int = Query(default=200, ge=1, le=1000)):
     """CSV of the most recent logged reads (the Recent Reads table)."""
     try:
         rows = get_db().recent_plates(limit=limit)
@@ -411,6 +414,9 @@ def download_plate(plate_id: int):
     plate_part = _safe_filename_part(payload.get("plate_text"), "vehicle")
     filename = f"{plate_part}_{plate_id}.csv"
     return _csv_response(csv_text, filename)
+
+
+@app.delete("/api/plates/{plate_id}")
 def delete_plate(plate_id: int):
     try:
         deleted = get_db().delete_plate(plate_id)
@@ -516,6 +522,11 @@ def get_snapshot(filename: str):
         raise HTTPException(404, "Snapshot not found.")
     return FileResponse(path)
 
-
+@app.websocket("/ws/{path:path}")
+async def _reject_unknown_websocket(websocket):
+    # This app has no real WebSocket endpoints; something outside this
+    # project (a browser extension or similar) probes /ws/... on this
+    # port. Closing it cleanly avoids a noisy traceback in the console.
+    await websocket.close(code=1000)
 # Serve the frontend last, so it doesn't shadow the /api/* routes above.
 app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
